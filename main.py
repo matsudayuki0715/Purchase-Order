@@ -480,7 +480,8 @@ class ItemRow:
         return {'description': self.desc_var.get().strip(), 'quantity': qty, 'unit_price': price}
 
     def is_empty(self) -> bool:
-        return not self.desc_var.get().strip() and not self.qty_var.get().strip()
+        # 摘要だけでも書いてあれば転写する（数量・単価なしの説明行を許容）
+        return not self.desc_var.get().strip()
 
 
 # ============================================================
@@ -600,11 +601,15 @@ class App(tk.Tk):
             ('件名',      'subject',             ''),
             ('見積 No.',  'quote_no',            ''),
         ]
+        _DELIVERY_LOCATIONS = [
+            '福岡県北九州市小倉北区浅野一丁目1番1号ビエラ小倉1F DISCOVERYcoworking-103',
+            '福岡県北九州市小倉北区浅野二丁目14番3号あるあるcity2号館地下1階',
+        ]
+
         fields_right = [
-            ('宛先（会社名）', 'maker_name',        ''),
-            ('納期',          'delivery',          ''),
-            ('納品場所',      'delivery_location', 'あるあるcity2号館小倉B1F'),
-            ('支払条件',      'payment_terms',     '月末締翌月末支払'),
+            ('宛先（会社名）', 'maker_name',    ''),
+            ('納期',          'delivery',      ''),
+            ('支払条件',      'payment_terms', '月末締翌月末支払'),
         ]
 
         for side_frame, fields in [
@@ -620,6 +625,18 @@ class App(tk.Tk):
                 w = 7 if key == 'serial_no' else 26
                 ttk.Entry(side_frame, textvariable=var, width=w).grid(
                     row=i, column=1, sticky='w', pady=2)
+
+        # 納品場所（ドロップダウン）
+        right_frame = side_frame.master  # fields_right を入れた side_frame の親
+        loc_row = len(fields_right)
+        ttk.Label(side_frame, text='納品場所:', anchor='e', width=14).grid(
+            row=loc_row, column=0, sticky='e', padx=(0, 4), pady=2)
+        loc_var = tk.StringVar(value=_DELIVERY_LOCATIONS[0])
+        self.field_vars['delivery_location'] = loc_var
+        ttk.Combobox(
+            side_frame, textvariable=loc_var,
+            values=_DELIVERY_LOCATIONS, width=44, state='readonly'
+        ).grid(row=loc_row, column=1, sticky='w', pady=2)
 
         # ③ 明細
         items_lf = ttk.LabelFrame(parent, text='③ 明細', padding=(8, 6))
