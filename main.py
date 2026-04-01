@@ -602,8 +602,8 @@ class App(tk.Tk):
             ('見積 No.',  'quote_no',            ''),
         ]
         _DELIVERY_LOCATIONS = [
-            '福岡県北九州市小倉北区浅野一丁目1番1号ビエラ小倉1F DISCOVERYcoworking-103',
             '福岡県北九州市小倉北区浅野二丁目14番3号あるあるcity2号館地下1階',
+            '福岡県北九州市小倉北区浅野一丁目1番1号ビエラ小倉1F DISCOVERYcoworking-103',
         ]
 
         fields_right = [
