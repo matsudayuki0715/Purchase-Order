@@ -597,7 +597,7 @@ class App(tk.Tk):
 
         fields_left = [
             ('発注日',    'order_date',         datetime.date.today().isoformat()),
-            ('連番',      'serial_no',           ''),
+            ('通番号',    'serial_no',           ''),
             ('件名',      'subject',             ''),
             ('見積 No.',  'quote_no',            ''),
         ]
