@@ -35,7 +35,7 @@ OUTPUT_DIR    = Path(__file__).parent / 'output'
 
 
 # ============================================================
-# PDF抽出（Claude API使用）
+# PDF抽出（pdfplumber + 正規表現 / EasyOCR）
 # ============================================================
 
 def _parse_with_regex(text: str) -> dict | None:
