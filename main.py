@@ -293,7 +293,7 @@ def make_output_path(data: dict, ext: str) -> Path:
     order_date = data.get('order_date', datetime.date.today())
     date_str   = order_date.strftime('%Y%m%d') if hasattr(order_date, 'strftime') else str(order_date).replace('-', '')
     serial_str = str(data.get('serial_no', 1)).zfill(2)
-    maker      = data.get('maker_name', 'メーカ').replace('株式会社', '').replace('有限会社', '').strip()
+    maker      = data.get('maker_name', 'メーカ')
     subject    = data.get('subject', '').replace('/', '').replace('\\', '')[:20]
     filename   = f"{date_str}_{serial_str}_発注書_{maker}様_{subject}{ext}"
     for ch in r'<>:"/\|?*':
