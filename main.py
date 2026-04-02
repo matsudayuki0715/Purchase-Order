@@ -531,6 +531,7 @@ class App(tk.Tk):
 
         self._item_rows: list[ItemRow] = []
         self._next_item_row = 2
+        self._extracting = False
 
         self._build_ui()
         self._populate_defaults()
@@ -592,8 +593,11 @@ class App(tk.Tk):
 
         ttk.Entry(bar, textvariable=self.pdf_var, width=72).pack(side='left', padx=(0, 6))
         ttk.Button(bar, text='参照...', command=self._browse_pdf).pack(side='left', padx=(0, 6))
-        ttk.Button(bar, text='  AI抽出  ', command=self._extract_async,
-                   style='Action.TButton').pack(side='left')
+        self._extract_btn = ttk.Button(bar, text='  AI抽出  ', command=self._extract_async,
+                                       style='Action.TButton')
+        self._extract_btn.pack(side='left')
+        self._cancel_btn = ttk.Button(bar, text='キャンセル', command=self._cancel_extract)
+        # キャンセルボタンは抽出中のみ表示
 
         self.status_var = tk.StringVar(value='PDFを選択するとプレビューが表示されます。「AI抽出」で自動入力できます。')
         self.status_label = ttk.Label(bar, textvariable=self.status_var,
@@ -788,7 +792,10 @@ class App(tk.Tk):
             messagebox.showwarning('警告', 'PDFファイルを選択してください')
             return
 
+        self._extracting = True
         self._set_status('⏳ 抽出中... しばらくお待ちください', 'orange')
+        self._extract_btn.pack_forget()
+        self._cancel_btn.pack(side='left', padx=(4, 0))
         self.update()
 
         def run():
@@ -800,12 +807,29 @@ class App(tk.Tk):
 
         threading.Thread(target=run, daemon=True).start()
 
+    def _cancel_extract(self):
+        """抽出スレッドの結果を無視して手動入力モードへ移行する"""
+        self._extracting = False
+        self._cancel_btn.pack_forget()
+        self._extract_btn.pack(side='left')
+        self._set_status('キャンセルしました。フォームに手動で入力してください', '#555')
+
     def _on_extract_success(self, data: dict):
+        if not self._extracting:
+            return  # キャンセル済みなら無視
+        self._extracting = False
+        self._cancel_btn.pack_forget()
+        self._extract_btn.pack(side='left')
         self._populate_form(data)
         self._set_status('✅ 抽出完了。内容を確認・修正してください', 'green')
 
     def _on_extract_error(self, msg: str):
-        self._set_status(f'❌ エラー: {msg[:80]}', 'red')
+        if not self._extracting:
+            return  # キャンセル済みなら無視
+        self._extracting = False
+        self._cancel_btn.pack_forget()
+        self._extract_btn.pack(side='left')
+        self._set_status(f'❌ 抽出失敗。フォームに手動で入力してください', 'red')
         messagebox.showerror('抽出エラー', msg)
 
     def _set_status(self, msg: str, color: str = '#555'):
