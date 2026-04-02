@@ -67,7 +67,12 @@ def _parse_with_regex(text: str) -> dict | None:
 
     # quote_no
     quote_no = ''
-    for pat in [r'見積書?番号\s+([\w-]+)', r'見積\s*No\.?\s*([\d-]+)']:
+    for pat in [
+        r'見積書?番号\s+([\w-]+)',
+        r'見積\s*No\.?\s*([\d-]+)',
+        r'(?:No|NO|番号)[.．\s]*\s*([\w-]{4,})',
+        r'\b(\d{4}-\d{3,})\b',   # 例: 2601-097
+    ]:
         m = re.search(pat, text)
         if m:
             quote_no = m.group(1).strip()
@@ -83,15 +88,24 @@ def _parse_with_regex(text: str) -> dict | None:
 
     # delivery
     delivery = ''
-    for pat in [r'納期[：:]\s*(受注後[^\n]+)', r'製作L/T[：:]\s*([^\n]+)']:
+    for pat in [
+        r'納期[：:]\s*(受注後[^\n]+)',
+        r'製作L/T[：:]\s*([^\n]+)',
+        r'受\s*渡\s*期\s*限\s+(\S+)',
+        r'納\s*期\s+(\S+)',
+    ]:
         m = re.search(pat, text)
         if m:
             delivery = m.group(1).strip()
             break
 
+    _SKIP_NAMES = {'合 計', '合計', '摘 要', '摘要', 'rix-std', '承 認', '確 認', '作 成',
+                   '小 計', '小計', '消費税', '税込', '合　計'}
+    _UNITS = r'(?:個|式|本|枚|台|セット|ヶ|ケ|組|巻|m|mm|kg|ｍ|ｋｇ)'
+
     # items ① クリエイティング形式: ・名称：xxx N 個 単価 金額
     item_pat = re.compile(
-        r'・(?:名称|図番)[：:](.+?)\s+(\d+)\s+(?:個|式)\s+([\d,]+)\s+([\d,]+)'
+        r'・(?:名称|図番)[：:](.+?)\s+(\d+)\s+' + _UNITS + r'\s+([\d,]+)\s+([\d,]+)'
     )
     items = [
         {'description': m.group(1).strip(),
@@ -102,17 +116,36 @@ def _parse_with_regex(text: str) -> dict | None:
 
     # items ② クリモト形式: 品名 N 式 単価 金額（行頭に番号がない）
     if not items:
-        skip = {'合 計', '合計', '摘 要', '摘要', 'rix-std', '承 認', '確 認', '作 成'}
         pat2 = re.compile(r'^(.{3,40}?)\s+(\d+)\s+式\s+([\d,]+)\s+([\d,]+)', re.MULTILINE)
         for m in pat2.finditer(text):
             name = m.group(1).strip()
-            if any(s in name for s in skip) or len(name) < 3:
+            if any(s in name for s in _SKIP_NAMES) or len(name) < 3:
                 continue
             items.append({
                 'description': name,
                 'quantity':    int(m.group(2)),
                 'unit_price':  int(m.group(3).replace(',', '')),
             })
+
+    # items ③ 汎用形式: （行頭番号+）品名 数量 単位 単価 金額
+    # ②で取れなかった場合、または②で取れた件数が少ない（部分マッチ疑い）場合も試みる
+    pat3 = re.compile(
+        r'^\d+\s+(.{2,50}?)\s+(\d+)\s+' + _UNITS + r'\s+([\d,]+)\s+([\d,]+)',
+        re.MULTILINE
+    )
+    items3 = []
+    for m in pat3.finditer(text):
+        name = m.group(1).strip()
+        if any(s in name for s in _SKIP_NAMES) or len(name) < 2:
+            continue
+        items3.append({
+            'description': name,
+            'quantity':    int(m.group(2)),
+            'unit_price':  int(m.group(3).replace(',', '')),
+        })
+    # ③の方が多く取れた場合は③を優先
+    if len(items3) > len(items):
+        items = items3
 
     # notes: 【見積り条件】以降
     notes = ''
