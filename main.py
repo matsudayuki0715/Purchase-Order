@@ -570,10 +570,28 @@ class App(tk.Tk):
                                bg='#aaa', sashrelief='flat', bd=0)
         paned.pack(fill='both', expand=True, pady=(4, 4))
 
-        # 左パネル：PDFプレビュー
+        # 左パネル：PDFプレビュー＋テキスト
         left_frame = ttk.Frame(paned, padding=(0, 0, 4, 0))
-        self._preview = PdfPreview(left_frame)
+        left_paned = tk.PanedWindow(left_frame, orient='vertical', sashwidth=5,
+                                    bg='#aaa', sashrelief='flat', bd=0)
+        left_paned.pack(fill='both', expand=True)
+
+        preview_frame = ttk.Frame(left_paned)
+        self._preview = PdfPreview(preview_frame)
         self._preview.pack(fill='both', expand=True)
+        left_paned.add(preview_frame, minsize=150, height=480)
+
+        text_frame = ttk.LabelFrame(left_paned, text='抽出テキスト（コピー可）')
+        self._pdf_text = tk.Text(text_frame, wrap='none', font=('Yu Gothic UI', 8),
+                                 state='disabled', relief='flat', bg='#fafafa')
+        ts_v = ttk.Scrollbar(text_frame, orient='vertical',   command=self._pdf_text.yview)
+        ts_h = ttk.Scrollbar(text_frame, orient='horizontal', command=self._pdf_text.xview)
+        self._pdf_text.configure(yscrollcommand=ts_v.set, xscrollcommand=ts_h.set)
+        ts_v.pack(side='right', fill='y')
+        ts_h.pack(side='bottom', fill='x')
+        self._pdf_text.pack(fill='both', expand=True)
+        left_paned.add(text_frame, minsize=80, height=200)
+
         paned.add(left_frame, minsize=300, width=560)
 
         # 右パネル：フォーム（スクロール対応）
@@ -775,12 +793,35 @@ class App(tk.Tk):
             self.pdf_var.set(path)
 
     def _on_pdf_path_changed(self, *_):
-        """パスが変わったら即プレビュー更新"""
+        """パスが変わったら即プレビュー更新＋テキスト抽出"""
         path = self.pdf_var.get().strip()
         if path and Path(path).is_file():
             self._preview.load(path)
+            self._load_pdf_text(path)
         else:
             self._preview.clear()
+            self._set_pdf_text('')
+
+    def _load_pdf_text(self, path: str):
+        """pdfplumberでテキスト抽出してテキストエリアに表示する"""
+        try:
+            import pdfplumber
+            with pdfplumber.open(path) as pdf:
+                text = '\n'.join(p.extract_text() or '' for p in pdf.pages)
+            if len(text.strip()) < 10:
+                import fitz
+                doc = fitz.open(path)
+                text = '\n'.join(p.get_text() for p in doc)
+                doc.close()
+            self._set_pdf_text(text if text.strip() else '（テキストを抽出できませんでした）')
+        except Exception as e:
+            self._set_pdf_text(f'（テキスト抽出エラー: {e}）')
+
+    def _set_pdf_text(self, text: str):
+        self._pdf_text.configure(state='normal')
+        self._pdf_text.delete('1.0', 'end')
+        self._pdf_text.insert('1.0', text)
+        self._pdf_text.configure(state='disabled')
 
     # ----------------------------------------------------------------
     # AI抽出
